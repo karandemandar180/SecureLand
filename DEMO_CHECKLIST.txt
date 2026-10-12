@@ -1,0 +1,12 @@
+1. Install: python -m pip install -r requirements.txt
+2. Run: python -m streamlit run app.py
+3. Login as Admin / admin123
+4. Add a sample land record.
+5. Upload a non-confidential JPG/PDF in Evidence Intake.
+6. Confirm Evidence ID and SHA-256 appear.
+7. Integrity Check -> Verify integrity -> expect INTEGRITY VERIFIED.
+8. Chain of Custody -> add EXAMINATION_STARTED.
+9. Forensic Tools -> Run Applicable Tools.
+10. tshark is intentionally skipped for JPG/PDF; use .pcap/.pcapng for tshark.
+11. Register FTK/Autopsy output only after running those external applications.
+12. Reports & Audit -> download JSON and custody CSV.
