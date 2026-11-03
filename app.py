@@ -37,8 +37,19 @@ st.set_page_config(
 
 init_db()
 
-st.title("🏛️ SecureLand — Land Records + Digital Forensics")
-st.caption("Educational prototype — not an official government system.")
+# Shared asset path for the application UI and PDF reports.
+APP_DIR = os.path.dirname(os.path.abspath(__file__))
+LOGO_PATH = os.path.join(APP_DIR, "assets", "cyberbridge_logo.png")
+
+# Homepage branding
+brand_col, title_col = st.columns([1, 4])
+with brand_col:
+    if os.path.isfile(LOGO_PATH):
+        st.image(LOGO_PATH, use_container_width=True)
+with title_col:
+    st.title("🏛️ SecureLand — Land Records + Digital Forensics")
+    st.caption("Educational prototype — not an official government system.")
+    st.caption("Developed by CyberBridge Digital Solutions Pune")
 
 
 # ==================================================
@@ -269,13 +280,8 @@ def create_secureland_pdf(
 
     story = []
 
-    # Optional logo file. Add it to GitHub at:
-    # assets/cyberbridge_logo.png
-    logo_path = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)),
-        "assets",
-        "cyberbridge_logo.png"
-    )
+    # Optional CyberBridge logo: assets/cyberbridge_logo.png
+    logo_path = LOGO_PATH
 
     if os.path.isfile(logo_path):
         try:
@@ -1254,13 +1260,32 @@ with t6:
 
         st.info("Acquire evidence first.")
 
-    st.markdown("#### Audit log")
+    st.divider()
+    audit_logo_col, audit_title_col = st.columns([1, 5])
+    with audit_logo_col:
+        if os.path.isfile(LOGO_PATH):
+            st.image(LOGO_PATH, use_container_width=True)
+    with audit_title_col:
+        st.markdown("### SecureLand — Audit Report")
+        st.caption("Developed by CyberBridge Digital Solutions Pune")
+        st.caption("Bridging Technology, Security & Digital Trust")
 
+    st.markdown("#### Audit log")
+    audit_report_df = get_audit_log()
     st.dataframe(
-        get_audit_log(),
+        audit_report_df,
         use_container_width=True,
         hide_index=True
     )
+
+    if not audit_report_df.empty:
+        st.download_button(
+            "Download Audit Report (CSV)",
+            audit_report_df.to_csv(index=False).encode("utf-8-sig"),
+            file_name="SecureLand_Audit_Report.csv",
+            mime="text/csv",
+            key="download_audit_report_csv"
+        )
 
 
 # ==================================================
@@ -1269,4 +1294,13 @@ with t6:
 
 st.sidebar.caption(
     "Demo only. Do not upload confidential citizen data."
+)
+
+st.divider()
+st.markdown(
+    "<div style='text-align:center; color: #777; font-size: 13px;'>"
+    "Developed by <b>CyberBridge Digital Solutions Pune</b><br>"
+    "Bridging Technology, Security &amp; Digital Trust"
+    "</div>",
+    unsafe_allow_html=True
 )
