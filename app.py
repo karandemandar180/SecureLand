@@ -7,25 +7,12 @@ import streamlit as st
 from database import *
 from forensics import run_applicable_tools, tool_availability
 
-
-# --------------------------------------------------
-# PAGE CONFIGURATION
-# --------------------------------------------------
-
-st.set_page_config(
-    page_title="SecureLand",
-    layout="wide"
-)
+st.set_page_config(page_title="SecureLand", layout="wide")
 
 init_db()
 
 st.title("🏛️ SecureLand — Land Records + Digital Forensics")
 st.caption("Educational prototype — not an official government system.")
-
-
-# --------------------------------------------------
-# LOGIN AND ROLE MANAGEMENT
-# --------------------------------------------------
 
 PASSWORDS = {
     "Admin": os.getenv("SECURELAND_ADMIN_PASSWORD", "admin123"),
@@ -33,61 +20,32 @@ PASSWORDS = {
     "Citizen": os.getenv("SECURELAND_CITIZEN_PASSWORD", "citizen123")
 }
 
-role_option = st.sidebar.selectbox(
-    "Role",
-    ["Citizen", "Talathi", "Admin"]
-)
-
-pw = st.sidebar.text_input(
-    "Password",
-    type="password"
-)
+role = st.sidebar.selectbox("Role", ["Citizen", "Talathi", "Admin"])
+pw = st.sidebar.text_input("Password", type="password")
 
 if st.sidebar.button("Login"):
-
-    if pw == PASSWORDS[role_option]:
-
+    if pw == PASSWORDS[role]:
         st.session_state.logged = True
-        st.session_state.role = role_option
-
-        add_audit(
-            role_option,
-            "LOGIN",
-            "Successful demo login"
-        )
-
+        st.session_state.role = role
+        add_audit(role, "LOGIN", "Successful demo login")
         st.rerun()
-
     else:
         st.sidebar.error("Incorrect password")
 
-
 if st.sidebar.button("Logout"):
-
     st.session_state.logged = False
     st.session_state.pop("role", None)
-
     st.rerun()
 
-
 if not st.session_state.get("logged", False):
-
     st.info(
         "Login: Admin/admin123, Talathi/talathi123, "
         "Citizen/citizen123 (demo only)."
     )
-
     st.stop()
 
-
 role = st.session_state.role
-
 st.success(f"Logged in as {role}")
-
-
-# --------------------------------------------------
-# MAIN APPLICATION TABS
-# --------------------------------------------------
 
 t1, t2, t3, t4, t5, t6 = st.tabs([
     "Land Records",
@@ -98,19 +56,15 @@ t1, t2, t3, t4, t5, t6 = st.tabs([
     "Reports & Audit"
 ])
 
-
 # --------------------------------------------------
-# 1. LAND RECORDS
+# TAB 1: LAND RECORDS
 # --------------------------------------------------
 
 with t1:
-
     st.subheader("Land Records — Input → Output")
 
     if role in ("Admin", "Talathi"):
-
         with st.form("land"):
-
             v = st.text_input("Village")
             o = st.text_input("Owner")
             s = st.text_input("Survey/Gat number")
@@ -118,19 +72,12 @@ with t1:
             go = st.form_submit_button("Save land record")
 
         if go:
-
             if v.strip() and o.strip() and s.strip():
-
                 rid, digest = add_land_record(
-                    v.strip(),
-                    o.strip(),
-                    s.strip(),
-                    role
+                    v.strip(), o.strip(), s.strip(), role
                 )
-
                 st.success(f"Record #{rid} saved")
                 st.code(digest)
-
             else:
                 st.error("Fill all fields.")
 
@@ -139,10 +86,14 @@ with t1:
     q = st.text_input("Search village or owner")
 
     if q and not df.empty:
-
         df = df[
-            df.village.str.contains(q, case=False, na=False)
-            | df.owner.str.contains(q, case=False, na=False)
+            df["village"].astype(str).str.contains(
+                q, case=False, na=False, regex=False
+            )
+            |
+            df["owner"].astype(str).str.contains(
+                q, case=False, na=False, regex=False
+            )
         ]
 
     st.dataframe(
@@ -151,77 +102,211 @@ with t1:
         hide_index=True
     )
 
-
 # --------------------------------------------------
-# 2. EVIDENCE INTAKE
+# TAB 2: EVIDENCE INTAKE + SEARCH + DISPLAY
 # --------------------------------------------------
 
 with t2:
-
     st.subheader("Evidence Intake — Input → Output")
 
-    case = st.text_input("Case/reference number")
-    notes = st.text_area("Evidence notes")
+    st.markdown("### 1. Upload New Evidence")
 
-    up = st.file_uploader("Select evidence file")
+    if role in ("Admin", "Talathi"):
+        case = st.text_input("Case/reference number")
+        notes = st.text_area("Evidence notes")
+        up = st.file_uploader(
+            "Select evidence file",
+            key="new_evidence_upload"
+        )
 
-    if st.button("Acquire Evidence", type="primary"):
+        if st.button("Acquire Evidence", type="primary"):
+            if up is None:
+                st.error("First select a file.")
+            else:
+                eid, path, digest = add_evidence(
+                    up.name,
+                    up.getvalue(),
+                    case,
+                    role,
+                    notes
+                )
 
-        if up is None:
+                add_audit(
+                    role,
+                    "EVIDENCE_ACQUIRED",
+                    f"Evidence #{eid}: {up.name}"
+                )
 
-            st.error("First select a file.")
+                st.success(f"Evidence ID: {eid}")
+                st.write(f"Saved file: {path}")
+                st.write("SHA-256 Hash:")
+                st.code(digest)
 
+    else:
+        st.info("Citizen role: Evidence upload is not enabled.")
+
+    st.divider()
+
+    st.markdown("### 2. Search Existing Evidence")
+
+    all_evidence = list_evidence()
+
+    if not all_evidence:
+        st.info("No existing evidence records found.")
+
+    else:
+        evidence_df = pd.DataFrame(all_evidence)
+
+        search_query = st.text_input(
+            "Search by Evidence ID, Filename or Case Number",
+            key="evidence_search"
+        )
+
+        filtered_df = evidence_df.copy()
+
+        if search_query.strip():
+            q = search_query.strip()
+
+            search_columns = [
+                "evidence_id",
+                "filename",
+                "case_ref"
+            ]
+
+            mask = pd.Series(
+                False,
+                index=filtered_df.index
+            )
+
+            for col in search_columns:
+                if col in filtered_df.columns:
+                    mask = mask | filtered_df[col].astype(
+                        str
+                    ).str.contains(
+                        q,
+                        case=False,
+                        na=False,
+                        regex=False
+                    )
+
+            filtered_df = filtered_df[mask]
+
+        st.markdown("### 3. Existing Evidence Records")
+
+        st.caption(
+            f"Total Evidence Records: {len(evidence_df)} | "
+            f"Search Results: {len(filtered_df)}"
+        )
+
+        display_columns = [
+            col for col in [
+                "evidence_id",
+                "case_ref",
+                "filename",
+                "size_bytes",
+                "collected_by",
+                "collected_at"
+            ]
+            if col in filtered_df.columns
+        ]
+
+        if filtered_df.empty:
+            st.warning("No matching evidence records found.")
         else:
-
-            eid, path, digest = add_evidence(
-                up.name,
-                up.getvalue(),
-                case,
-                role,
-                notes
+            st.dataframe(
+                filtered_df[display_columns],
+                use_container_width=True,
+                hide_index=True
             )
 
-            add_audit(
-                role,
-                "EVIDENCE_ACQUIRED",
-                f"Evidence #{eid}: {up.name}"
+            st.divider()
+
+            st.markdown("### 4. View Evidence Details")
+
+            evidence_options = {
+                f"#{row['evidence_id']} — {row['filename']}": row
+                for row in filtered_df.to_dict("records")
+            }
+
+            selected_label = st.selectbox(
+                "Select Evidence to view details",
+                list(evidence_options.keys()),
+                key="evidence_details_select"
             )
 
-            st.success(f"Evidence ID: {eid}")
+            selected = evidence_options[selected_label]
 
-            st.write(f"Saved file: {path}")
+            st.markdown("#### Evidence Information")
 
-            st.write("SHA-256 Hash")
+            st.write("Evidence ID:", selected.get("evidence_id"))
+            st.write("Case Number:", selected.get("case_ref") or "N/A")
+            st.write("Filename:", selected.get("filename"))
+            st.write("Uploaded By:", selected.get("collected_by"))
+            st.write("Collected At:", selected.get("collected_at"))
+            st.write("File Size:", f"{selected.get('size_bytes', 0):,} bytes")
+            st.write("Notes:", selected.get("notes") or "N/A")
 
-            st.code(digest)
+            st.markdown("#### SHA-256 Hash")
+            st.code(selected.get("sha256", "N/A"))
 
+            filepath = selected.get("filepath", "")
+
+            if filepath and os.path.isfile(filepath):
+                st.success("Evidence file is available on the server.")
+            else:
+                st.warning(
+                    "Evidence database record exists, "
+                    "but the original file is not available "
+                    "at its recorded path."
+                )
+
+            if st.button(
+                "Verify Selected Evidence",
+                key="verify_from_intake"
+            ):
+                result = verify_evidence(
+                    selected["evidence_id"]
+                )
+
+                if result["status"] == "INTEGRITY VERIFIED":
+                    st.success(result["status"])
+                else:
+                    st.error(result["status"])
+
+                st.write("Recorded Hash")
+                st.code(result.get("recorded_hash", "N/A"))
+
+                st.write("Current Hash")
+                st.code(result.get("current_hash") or "N/A")
+
+                add_audit(
+                    role,
+                    "INTEGRITY_CHECK",
+                    f"Evidence #{selected['evidence_id']}: "
+                    f"{result['status']}"
+                )
 
 # --------------------------------------------------
-# EVIDENCE LIST
+# COMMON EVIDENCE LIST
 # --------------------------------------------------
 
 evidences = list_evidence()
 
 choices = {
-    f"#{x['evidence_id']} — {x['filename']}": x['evidence_id']
+    f"#{x['evidence_id']} — {x['filename']}": x["evidence_id"]
     for x in evidences
 }
 
-
 # --------------------------------------------------
-# 3. INTEGRITY CHECK
+# TAB 3: INTEGRITY CHECK
 # --------------------------------------------------
 
 with t3:
-
     st.subheader("SHA-256 Integrity Check")
 
     if not choices:
-
         st.info("Acquire evidence first.")
-
     else:
-
         label = st.selectbox(
             "Select evidence",
             list(choices),
@@ -229,30 +314,19 @@ with t3:
         )
 
         if st.button("Verify integrity"):
-
             eid = choices[label]
-
             result = verify_evidence(eid)
 
             if result["status"] == "INTEGRITY VERIFIED":
-
                 st.success(result["status"])
-
             else:
-
                 st.error(result["status"])
 
             st.write("Recorded hash")
-
-            st.code(
-                result.get("recorded_hash", "N/A")
-            )
+            st.code(result.get("recorded_hash", "N/A"))
 
             st.write("Current hash")
-
-            st.code(
-                result.get("current_hash") or "N/A"
-            )
+            st.code(result.get("current_hash") or "N/A")
 
             add_custody_event(
                 eid,
@@ -267,21 +341,16 @@ with t3:
                 f"Evidence #{eid}: {result['status']}"
             )
 
-
 # --------------------------------------------------
-# 4. CHAIN OF CUSTODY
+# TAB 4: CHAIN OF CUSTODY
 # --------------------------------------------------
 
 with t4:
-
     st.subheader("Chain of Custody")
 
     if not choices:
-
         st.info("Acquire evidence first.")
-
     else:
-
         label = st.selectbox(
             "Evidence",
             list(choices),
@@ -289,13 +358,9 @@ with t4:
         )
 
         eid = choices[label]
-
-        # Display current custody history
-
         custody_df = get_custody(eid)
 
         with st.form("custody_form"):
-
             action = st.selectbox(
                 "Action",
                 [
@@ -308,50 +373,31 @@ with t4:
                 ]
             )
 
-            note = st.text_area(
-                "Notes (Required)",
-                placeholder=(
-                    "Enter event details, reason, "
-                    "transfer details or examination notes."
-                )
-            )
+            note = st.text_area("Notes")
 
             submit = st.form_submit_button(
                 "Add custody event"
             )
 
         if submit:
-
-            # Mandatory Notes validation
-
             if not note.strip():
-
                 st.error(
-                    "Notes are mandatory. "
-                    "Please enter event details."
+                    "Notes are mandatory. Please enter event details."
                 )
-
-            # Duplicate RELEASED prevention
 
             elif (
                 action == "RELEASED"
                 and not custody_df.empty
-                and "action" in custody_df.columns
-                and custody_df["action"]
-                    .astype(str)
-                    .str.upper()
-                    .eq("RELEASED")
-                    .any()
+                and custody_df["action"].astype(str).str.upper().eq(
+                    "RELEASED"
+                ).any()
             ):
-
                 st.warning(
                     "Release event already exists for this "
-                    "Evidence ID. Duplicate RELEASED event "
-                    "is not allowed."
+                    "Evidence ID. Duplicate RELEASED event is not allowed."
                 )
 
             else:
-
                 add_custody_event(
                     eid,
                     action,
@@ -365,15 +411,10 @@ with t4:
                     f"Evidence #{eid}: {action} - {note.strip()}"
                 )
 
-                st.success(
-                    "Chain of Custody event recorded successfully."
-                )
-
+                st.success("Event recorded.")
                 st.rerun()
 
-        st.divider()
-
-        st.markdown("#### Evidence Custody History")
+        st.markdown("#### Custody History")
 
         st.dataframe(
             get_custody(eid),
@@ -381,13 +422,11 @@ with t4:
             hide_index=True
         )
 
-
 # --------------------------------------------------
-# 5. FORENSIC TOOLS
+# TAB 5: FORENSIC TOOLS
 # --------------------------------------------------
 
 with t5:
-
     st.subheader("Forensic Tools — Input → Process → Output")
 
     st.dataframe(
@@ -403,11 +442,8 @@ with t5:
     )
 
     if not choices:
-
         st.info("Acquire evidence first.")
-
     else:
-
         label = st.selectbox(
             "Select evidence for analysis",
             list(choices),
@@ -415,9 +451,7 @@ with t5:
         )
 
         if st.button("Run Applicable Tools"):
-
             eid = choices[label]
-
             rec = get_evidence(eid)
 
             if (
@@ -425,14 +459,11 @@ with t5:
                 or not rec["filepath"]
                 or not os.path.isfile(rec["filepath"])
             ):
-
                 st.error(
                     "Evidence path missing. "
                     "Re-acquire this file using Evidence Intake."
                 )
-
             else:
-
                 results = run_applicable_tools(
                     eid,
                     rec["filepath"],
@@ -440,22 +471,16 @@ with t5:
                 )
 
                 for r in results:
-
                     st.markdown("### " + r["tool"])
 
                     if r["status"] == "SUCCESS":
-
                         st.success(r["status"])
-
                     elif r["status"] in (
                         "SKIPPED",
                         "NOT INSTALLED"
                     ):
-
                         st.warning(r["status"])
-
                     else:
-
                         st.error(r["status"])
 
                     st.code(
@@ -505,9 +530,7 @@ with t5:
         )
 
         if st.button("Register external result"):
-
             if extout.strip():
-
                 save_tool_result(
                     extid,
                     exttool,
@@ -530,24 +553,17 @@ with t5:
                 )
 
                 st.success("Result recorded.")
-
             else:
-
-                st.error(
-                    "Paste the actual result first."
-                )
-
+                st.error("Paste the actual result first.")
 
 # --------------------------------------------------
-# 6. REPORTS AND AUDIT
+# TAB 6: REPORTS AND AUDIT
 # --------------------------------------------------
 
 with t6:
-
     st.subheader("Reports and Audit")
 
     if choices:
-
         label = st.selectbox(
             "Evidence for report",
             list(choices),
@@ -555,16 +571,13 @@ with t6:
         )
 
         eid = choices[label]
-
         rec = get_evidence(eid)
 
         report = {
             "evidence": rec,
             "custody": get_custody(eid).to_dict("records"),
             "tool_results": get_tool_results(eid).to_dict("records"),
-            "notice": (
-                "Prototype report; not a legal conclusion."
-            )
+            "notice": "Prototype report; not a legal conclusion."
         }
 
         st.json(report)
@@ -598,9 +611,8 @@ with t6:
         hide_index=True
     )
 
-
 # --------------------------------------------------
-# FOOTER
+# SIDEBAR NOTICE
 # --------------------------------------------------
 
 st.sidebar.caption(
