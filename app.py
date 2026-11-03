@@ -1,3 +1,4 @@
+
 import os
 import io
 import json
@@ -32,50 +33,47 @@ from reportlab.platypus import (
 
 st.set_page_config(
     page_title="SecureLand",
+    page_icon="🏛️",
     layout="wide"
 )
 
 init_db()
 
-# Shared asset path for the application UI and PDF reports.
-# Supports either repository-root upload or assets/ folder upload.
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
-_LOGO_CANDIDATES = [
+
+LOGO_CANDIDATES = [
     os.path.join(APP_DIR, "cyberbridge_logo.png"),
-    os.path.join(APP_DIR, "assets", "cyberbridge_logo.png"),
+    os.path.join(APP_DIR, "assets", "cyberbridge_logo.png")
 ]
+
 LOGO_PATH = next(
-    (candidate for candidate in _LOGO_CANDIDATES if os.path.isfile(candidate)),
-    _LOGO_CANDIDATES[0]
+    (p for p in LOGO_CANDIDATES if os.path.isfile(p)),
+    LOGO_CANDIDATES[0]
 )
 
-# Homepage branding
+
+# ==================================================
+# BRANDING
+# ==================================================
+
 brand_col, title_col = st.columns([1, 4])
+
 with brand_col:
     if os.path.isfile(LOGO_PATH):
         st.image(LOGO_PATH, use_container_width=True)
+
 with title_col:
-    st.title("🏛️ SecureLand — Land Records + Digital Forensics")
+    st.title("🏛️ SecureLand")
+    st.subheader("Land Records + Digital Forensics")
     st.caption("Educational prototype — not an official government system.")
     st.caption("Developed by CyberBridge Digital Solutions Pune")
 
 
 # ==================================================
-# STRONG PASSWORD CONFIGURATION
+# PASSWORD CONFIGURATION
 # ==================================================
-# Do not put real passwords in this file.
-# Configure these values in Streamlit Cloud > App > Settings > Secrets.
-#
-# Required secrets:
-# SECURELAND_ADMIN_PASSWORD = "Your-Strong-Admin-Password"
-# SECURELAND_TALATHI_PASSWORD = "Your-Strong-Talathi-Password"
-# SECURELAND_CITIZEN_PASSWORD = "Your-Strong-Citizen-Password"
-#
-# Each password must be at least 12 characters and contain:
-# uppercase + lowercase + number + special character.
 
 def get_configured_password(secret_name):
-    """Read a password from Streamlit Secrets or environment variables."""
     value = None
 
     try:
@@ -93,12 +91,12 @@ def is_strong_password(password):
     if len(password) < 12:
         return False
 
-    has_upper = any(ch.isupper() for ch in password)
-    has_lower = any(ch.islower() for ch in password)
-    has_digit = any(ch.isdigit() for ch in password)
-    has_special = any(not ch.isalnum() for ch in password)
-
-    return has_upper and has_lower and has_digit and has_special
+    return (
+        any(c.isupper() for c in password)
+        and any(c.islower() for c in password)
+        and any(c.isdigit() for c in password)
+        and any(not c.isalnum() for c in password)
+    )
 
 
 PASSWORDS = {
@@ -107,43 +105,37 @@ PASSWORDS = {
     "Citizen": get_configured_password("SECURELAND_CITIZEN_PASSWORD")
 }
 
-missing_password_roles = [
-    role_name for role_name, password in PASSWORDS.items()
+missing_roles = [
+    role_name
+    for role_name, password in PASSWORDS.items()
     if not password
 ]
 
-weak_password_roles = [
-    role_name for role_name, password in PASSWORDS.items()
+weak_roles = [
+    role_name
+    for role_name, password in PASSWORDS.items()
     if password and not is_strong_password(password)
 ]
 
-if missing_password_roles or weak_password_roles:
+if missing_roles or weak_roles:
+
     st.error("SecureLand login configuration is incomplete.")
-    if missing_password_roles:
+
+    if missing_roles:
         st.warning(
-            "Password not configured for: "
-            + ", ".join(missing_password_roles)
-        )
-    if weak_password_roles:
-        st.warning(
-            "Password does not meet the strong-password policy for: "
-            + ", ".join(weak_password_roles)
+            "Password missing for: " + ", ".join(missing_roles)
         )
 
-    st.markdown(
-        """
-        **Required password policy**
-        - Minimum 12 characters
-        - At least one uppercase letter
-        - At least one lowercase letter
-        - At least one number
-        - At least one special character
+    if weak_roles:
+        st.warning(
+            "Weak password for: " + ", ".join(weak_roles)
+        )
 
-        Configure all three passwords in Streamlit Cloud Secrets.
-        Do not use the old demo passwords and do not share passwords
-        in source code, GitHub, screenshots, or chat messages.
-        """
+    st.info(
+        "Configure all three passwords in .streamlit/secrets.toml "
+        "or Streamlit Cloud Secrets."
     )
+
     st.stop()
 
 
@@ -157,8 +149,11 @@ if "logged" not in st.session_state:
 if "role" not in st.session_state:
     st.session_state.role = None
 
+
+st.sidebar.title("SecureLand Login")
+
 role = st.sidebar.selectbox(
-    "Role",
+    "Select Role",
     ["Citizen", "Talathi", "Admin"]
 )
 
@@ -169,9 +164,11 @@ pw = st.sidebar.text_input(
 )
 
 if st.sidebar.button("Login"):
+
     configured_password = PASSWORDS[role]
 
     if hmac.compare_digest(pw, configured_password):
+
         st.session_state.logged = True
         st.session_state.role = role
 
@@ -182,11 +179,13 @@ if st.sidebar.button("Login"):
         )
 
         st.rerun()
+
     else:
         st.sidebar.error("Incorrect password")
 
 
 if st.sidebar.button("Logout"):
+
     previous_role = st.session_state.get("role") or "Unknown"
 
     if st.session_state.get("logged", False):
@@ -198,20 +197,26 @@ if st.sidebar.button("Logout"):
 
     st.session_state.logged = False
     st.session_state.role = None
+
     st.session_state.pop("login_password", None)
+
     st.rerun()
 
 
 if not st.session_state.get("logged", False):
-    st.info("Please log in using the password configured for your role.")
+
+    st.info("Please log in using your configured role password.")
+
     st.sidebar.caption(
         "Demo prototype. Do not upload confidential citizen data."
     )
+
     st.stop()
 
 
 role = st.session_state.role
-st.success(f"Logged in as {role}")
+
+st.success(f"Logged in as: {role}")
 
 
 # ==================================================
@@ -225,7 +230,6 @@ def create_secureland_pdf(
     audit_df,
     integrity_result
 ):
-    """Create a branded PDF evidence report in memory."""
 
     buffer = io.BytesIO()
 
@@ -288,73 +292,99 @@ def create_secureland_pdf(
 
     story = []
 
-    # Optional CyberBridge logo: root folder or assets/ folder.
-    logo_path = LOGO_PATH
-
-    if os.path.isfile(logo_path):
+    if os.path.isfile(LOGO_PATH):
         try:
             logo = RLImage(
-                logo_path,
+                LOGO_PATH,
                 width=38 * mm,
                 height=25 * mm,
                 kind="proportional"
             )
+
             logo.hAlign = "CENTER"
+
             story.append(logo)
             story.append(Spacer(1, 4))
+
         except Exception:
             pass
 
     story.append(Paragraph("SECURELAND", title_style))
-    story.append(Paragraph(
-        "Land Records + Digital Forensics",
-        subtitle_style
-    ))
 
-    story.append(Paragraph(
-        "<b>Developed by:</b> CyberBridge Digital Solutions Pune",
-        body_style
-    ))
-    story.append(Paragraph(
-        "<b>Mobile:</b> 9423174649",
-        body_style
-    ))
-    story.append(Paragraph(
-        "<b>Email:</b> cyberbridgedigital@gmail.com",
-        body_style
-    ))
-    story.append(Paragraph(
-        "<b>Developed Year:</b> 2026",
-        body_style
-    ))
-    story.append(Paragraph(
-        "<b>Report Generated:</b> "
-        + datetime.now().strftime("%d-%m-%Y %H:%M:%S"),
-        body_style
-    ))
+    story.append(
+        Paragraph(
+            "Land Records + Digital Forensics",
+            subtitle_style
+        )
+    )
+
+    story.append(
+        Paragraph(
+            "<b>Developed by:</b> CyberBridge Digital Solutions Pune",
+            body_style
+        )
+    )
+
+    story.append(
+        Paragraph(
+            "<b>Mobile:</b> 9423174649",
+            body_style
+        )
+    )
+
+    story.append(
+        Paragraph(
+            "<b>Email:</b> cyberbridgedigital@gmail.com",
+            body_style
+        )
+    )
+
+    story.append(
+        Paragraph(
+            "<b>Generated:</b> "
+            + datetime.now().strftime("%d-%m-%Y %H:%M:%S"),
+            body_style
+        )
+    )
+
     story.append(Spacer(1, 8))
 
     def safe_text(value):
+
         if value is None:
             return "N/A"
+
         try:
             if pd.isna(value):
                 return "N/A"
         except Exception:
             pass
+
         return str(value)
 
     def make_table(rows, col_widths=None):
+
         if not rows:
-            story.append(Paragraph("No records available.", body_style))
+            story.append(
+                Paragraph("No records available.", body_style)
+            )
             return
-                    converted = []
+
+        converted = []
+
         for row in rows:
+
             converted_row = []
+
             for value in row:
+
                 converted_row.append(
-                    Paragraph(escape(safe_text(value)), cell_style)
+                    Paragraph(
+                        escape(safe_text(value)),
+                        cell_style
+                    )
                 )
+
             converted.append(converted_row)
 
         table = Table(
@@ -364,25 +394,70 @@ def create_secureland_pdf(
             hAlign="LEFT"
         )
 
-        table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0),
-             colors.HexColor("#17365D")),
-            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-            ("GRID", (0, 0), (-1, -1), 0.35, colors.grey),
-            ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ("LEFTPADDING", (0, 0), (-1, -1), 4),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 4),
-            ("TOPPADDING", (0, 0), (-1, -1), 4),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-        ]))
+        table.setStyle(
+            TableStyle([
+                (
+                    "BACKGROUND",
+                    (0, 0),
+                    (-1, 0),
+                    colors.HexColor("#17365D")
+                ),
+                (
+                    "TEXTCOLOR",
+                    (0, 0),
+                    (-1, 0),
+                    colors.white
+                ),
+                (
+                    "GRID",
+                    (0, 0),
+                    (-1, -1),
+                    0.35,
+                    colors.grey
+                ),
+                (
+                    "VALIGN",
+                    (0, 0),
+                    (-1, -1),
+                    "TOP"
+                ),
+                (
+                    "LEFTPADDING",
+                    (0, 0),
+                    (-1, -1),
+                    4
+                ),
+                (
+                    "RIGHTPADDING",
+                    (0, 0),
+                    (-1, -1),
+                    4
+                ),
+                (
+                    "TOPPADDING",
+                    (0, 0),
+                    (-1, -1),
+                    4
+                ),
+                (
+                    "BOTTOMPADDING",
+                    (0, 0),
+                    (-1, -1),
+                    4
+                )
+            ])
+        )
 
         story.append(table)
         story.append(Spacer(1, 5))
 
     def add_section(title):
-        story.append(Paragraph(title, heading_style))
+        story.append(
+            Paragraph(title, heading_style)
+        )
 
-    # 1. Evidence details
+    # 1. Evidence Information
+
     add_section("1. Evidence Information")
 
     evidence_rows = [
@@ -406,117 +481,156 @@ def create_secureland_pdf(
         [45 * mm, 125 * mm]
     )
 
-    # 2. File availability
+    # 2. File Availability
+
     add_section("2. File Availability")
 
     filepath = evidence.get("filepath", "")
-    file_available = bool(filepath and os.path.isfile(filepath))
+
+    file_available = bool(
+        filepath and os.path.isfile(filepath)
+    )
 
     actual_size = (
         f"{os.path.getsize(filepath)} bytes"
         if file_available else "N/A"
     )
 
-    make_table([
-        ["Check", "Result"],
+    make_table(
         [
-            "File Availability",
-            "FILE AVAILABLE" if file_available
-            else "FILE NOT AVAILABLE"
+            ["Check", "Result"],
+            [
+                "File Availability",
+                "FILE AVAILABLE"
+                if file_available
+                else "FILE NOT AVAILABLE"
+            ],
+            ["Actual File Size", actual_size]
         ],
-        ["Actual File Size", actual_size]
-    ], [50 * mm, 120 * mm])
+        [50 * mm, 120 * mm]
+    )
 
     # 3. Integrity
+
     add_section("3. SHA-256 Integrity Verification")
 
     integrity_result = integrity_result or {}
 
-    make_table([
-        ["Field", "Value"],
+    make_table(
         [
-            "Verification Status",
-            integrity_result.get("status", "NOT CHECKED")
+            ["Field", "Value"],
+            [
+                "Verification Status",
+                integrity_result.get("status", "NOT CHECKED")
+            ],
+            [
+                "Recorded Hash",
+                integrity_result.get("recorded_hash") or "N/A"
+            ],
+            [
+                "Current Hash",
+                integrity_result.get("current_hash") or "N/A"
+            ]
         ],
-        [
-            "Recorded Hash",
-            integrity_result.get("recorded_hash") or "N/A"
-        ],
-        [
-            "Current Hash",
-            integrity_result.get("current_hash") or "N/A"
-        ]
-    ], [50 * mm, 120 * mm])
+        [50 * mm, 120 * mm]
+    )
 
-    # 4. Chain of custody
+    # 4. Chain of Custody
+
     add_section("4. Chain of Custody History")
 
     if isinstance(custody_df, pd.DataFrame) and not custody_df.empty:
+
         make_table(
             [list(custody_df.columns)]
             + custody_df.fillna("").astype(str).values.tolist()
         )
-    else:
-        story.append(Paragraph(
-            "No custody events recorded.",
-            body_style
-        ))
 
-    # 5. Forensic tools
+    else:
+
+        story.append(
+            Paragraph(
+                "No custody events recorded.",
+                body_style
+            )
+        )
+
+    # 5. Forensic Tools
+
     add_section("5. Forensic Tools Results")
 
     if isinstance(tools_df, pd.DataFrame) and not tools_df.empty:
+
         make_table(
             [list(tools_df.columns)]
             + tools_df.fillna("").astype(str).values.tolist()
         )
-    else:
-        story.append(Paragraph(
-            "No forensic tool results recorded.",
-            body_style
-        ))
 
-    # 6. Audit log
+    else:
+
+        story.append(
+            Paragraph(
+                "No forensic tool results recorded.",
+                body_style
+            )
+        )
+
+    # 6. Audit Log
+
     add_section("6. Audit History")
 
     if isinstance(audit_df, pd.DataFrame) and not audit_df.empty:
+
         make_table(
             [list(audit_df.columns)]
             + audit_df.fillna("").astype(str).values.tolist()
         )
+
     else:
-        story.append(Paragraph(
-            "No audit records available.",
-            body_style
-        ))
+
+        story.append(
+            Paragraph(
+                "No audit records available.",
+                body_style
+            )
+        )
 
     # 7. Disclaimer
+
     add_section("7. Important Disclaimer")
 
-    story.append(Paragraph(
-        "This document is generated by an educational SecureLand "
-        "prototype. It is not an official government record, forensic "
-        "certification, or legal opinion. A matching SHA-256 hash "
-        "indicates consistency with the recorded hash; it does not "
-        "independently establish authenticity, ownership, or legal "
-        "admissibility. Findings require appropriate independent "
-        "verification by competent professionals.",
-        body_style
-    ))
+    story.append(
+        Paragraph(
+            "This document is generated by an educational SecureLand "
+            "prototype. It is not an official government record, "
+            "forensic certification, or legal opinion. A matching "
+            "SHA-256 hash indicates consistency with the recorded "
+            "hash; it does not independently establish authenticity, "
+            "ownership, or legal admissibility. Findings require "
+            "appropriate independent verification by competent "
+            "professionals.",
+            body_style
+        )
+    )
 
     def add_page_number(canvas, document):
+
         canvas.saveState()
+
         canvas.setFont("Helvetica", 7)
+
         canvas.drawString(
             15 * mm,
             9 * mm,
             "CyberBridge Digital Solutions Pune | SecureLand | 2026"
         )
+
         canvas.drawRightString(
             A4[0] - 15 * mm,
             9 * mm,
             f"Page {document.page}"
         )
+
         canvas.restoreState()
 
     doc.build(
@@ -526,6 +640,7 @@ def create_secureland_pdf(
     )
 
     buffer.seek(0)
+
     return buffer.getvalue()
 
 
@@ -576,6 +691,7 @@ with t1:
                 st.code(digest)
 
             else:
+
                 st.error("Fill all fields.")
 
     df = get_land_records()
@@ -620,6 +736,7 @@ with t2:
     if role in ("Admin", "Talathi"):
 
         case = st.text_input("Case/reference number")
+
         notes = st.text_area("Evidence notes")
 
         up = st.file_uploader(
@@ -653,13 +770,18 @@ with t2:
                 )
 
                 st.success(f"Evidence ID: {eid}")
-                st.write(f"Saved file: {path}")
+
+                st.write("Saved file:")
+                st.code(path)
+
                 st.write("SHA-256 Hash:")
                 st.code(digest)
 
     else:
 
-        st.info("Citizen role: Evidence upload is not enabled.")
+        st.info(
+            "Citizen role: Evidence upload is not enabled."
+        )
 
     st.divider()
 
@@ -696,17 +818,20 @@ with t2:
                 False,
                 index=filtered_df.index
             )
-                        for col in search_columns:
+
+            for col in search_columns:
 
                 if col in filtered_df.columns:
 
-                    mask = mask | filtered_df[col].astype(
-                        str
-                    ).str.contains(
-                        q,
-                        case=False,
-                        na=False,
-                        regex=False
+                    mask = (
+                        mask
+                        |
+                        filtered_df[col].astype(str).str.contains(
+                            q,
+                            case=False,
+                            na=False,
+                            regex=False
+                        )
                     )
 
             filtered_df = filtered_df[mask]
@@ -719,7 +844,8 @@ with t2:
         )
 
         display_columns = [
-            col for col in [
+            col
+            for col in [
                 "evidence_id",
                 "case_ref",
                 "filename",
@@ -766,13 +892,16 @@ with t2:
             st.write("Filename:", selected.get("filename"))
             st.write("Uploaded By:", selected.get("collected_by"))
             st.write("Collected At:", selected.get("collected_at"))
+
             st.write(
                 "Registered File Size:",
                 f"{selected.get('size_bytes', 0):,} bytes"
             )
+
             st.write("Notes:", selected.get("notes") or "N/A")
 
             st.markdown("#### SHA-256 Hash")
+
             st.code(selected.get("sha256", "N/A"))
 
             filepath = selected.get("filepath", "")
@@ -787,6 +916,7 @@ with t2:
                 if filepath and os.path.isfile(filepath):
 
                     st.success("FILE AVAILABLE")
+
                     st.write("File Path:")
                     st.code(filepath)
 
@@ -830,7 +960,9 @@ with t2:
                 key="verify_from_intake"
             ):
 
-                result = verify_evidence(selected["evidence_id"])
+                result = verify_evidence(
+                    selected["evidence_id"]
+                )
 
                 if result["status"] == "INTEGRITY VERIFIED":
                     st.success(result["status"])
@@ -886,6 +1018,7 @@ with t3:
         if st.button("Verify integrity"):
 
             eid = choices[label]
+
             result = verify_evidence(eid)
 
             if result["status"] == "INTEGRITY VERIFIED":
@@ -934,6 +1067,7 @@ with t4:
         )
 
         eid = choices[label]
+
         custody_df = get_custody(eid)
 
         with st.form("custody_form"):
@@ -952,7 +1086,9 @@ with t4:
 
             note = st.text_area("Notes")
 
-            submit = st.form_submit_button("Add custody event")
+            submit = st.form_submit_button(
+                "Add custody event"
+            )
 
         if submit:
 
@@ -991,6 +1127,7 @@ with t4:
                 )
 
                 st.success("Event recorded.")
+
                 st.rerun()
 
         st.markdown("#### Custody History")
@@ -1019,7 +1156,7 @@ with t5:
     st.caption(
         "ExifTool works with supported metadata files; "
         "tshark requires .pcap/.pcapng. "
-        "FTK Imager/Autopsy are external apps."
+        "FTK Imager and Autopsy are external applications."
     )
 
     if not choices:
@@ -1037,6 +1174,7 @@ with t5:
         if st.button("Run Applicable Tools"):
 
             eid = choices[label]
+
             rec = get_evidence(eid)
 
             if (
@@ -1046,7 +1184,7 @@ with t5:
             ):
 
                 st.error(
-                                        "Evidence path missing. "
+                    "Evidence path missing. "
                     "Re-acquire this file using Evidence Intake."
                 )
 
@@ -1063,15 +1201,18 @@ with t5:
                     st.markdown("### " + r["tool"])
 
                     if r["status"] == "SUCCESS":
+
                         st.success(r["status"])
 
                     elif r["status"] in (
                         "SKIPPED",
                         "NOT INSTALLED"
                     ):
+
                         st.warning(r["status"])
 
                     else:
+
                         st.error(r["status"])
 
                     st.code(
@@ -1171,19 +1312,18 @@ with t6:
         eid = choices[label]
 
         rec = get_evidence(eid)
+
         custody_df = get_custody(eid)
+
         tools_df = get_tool_results(eid)
 
         report = {
             "evidence": rec,
             "custody": custody_df.to_dict("records"),
             "tool_results": tools_df.to_dict("records"),
-            "notice": (
-                "Prototype report; not a legal conclusion."
-            )
+            "notice": "Prototype report; not a legal conclusion."
         }
 
-        # Existing JSON report download
         st.download_button(
             "Download JSON report",
             json.dumps(
@@ -1196,7 +1336,6 @@ with t6:
             mime="application/json"
         )
 
-        # Existing CSV report download
         st.download_button(
             "Download custody CSV",
             custody_df.to_csv(
@@ -1207,6 +1346,7 @@ with t6:
         )
 
         st.divider()
+
         st.markdown("### CyberBridge Branded PDF Report")
 
         if st.button(
@@ -1218,6 +1358,7 @@ with t6:
             try:
 
                 integrity_result = verify_evidence(eid)
+
                 audit_df = get_audit_log()
 
                 pdf_bytes = create_secureland_pdf(
@@ -1235,12 +1376,16 @@ with t6:
                 )
 
                 st.session_state["secureland_pdf"] = pdf_bytes
+
                 st.session_state["secureland_pdf_name"] = (
                     f"SecureLand_Evidence_Report_{eid}.pdf"
                 )
+
                 st.session_state["secureland_pdf_eid"] = eid
 
-                st.success("PDF report generated successfully.")
+                st.success(
+                    "PDF report generated successfully."
+                )
 
             except Exception as e:
 
@@ -1267,17 +1412,30 @@ with t6:
         st.info("Acquire evidence first.")
 
     st.divider()
+
     audit_logo_col, audit_title_col = st.columns([1, 5])
+
     with audit_logo_col:
+
         if os.path.isfile(LOGO_PATH):
             st.image(LOGO_PATH, use_container_width=True)
+
     with audit_title_col:
+
         st.markdown("### SecureLand — Audit Report")
-        st.caption("Developed by CyberBridge Digital Solutions Pune")
-        st.caption("Bridging Technology, Security & Digital Trust")
+
+        st.caption(
+            "Developed by CyberBridge Digital Solutions Pune"
+        )
+
+        st.caption(
+            "Bridging Technology, Security & Digital Trust"
+        )
 
     st.markdown("#### Audit log")
+
     audit_report_df = get_audit_log()
+
     st.dataframe(
         audit_report_df,
         use_container_width=True,
@@ -1285,9 +1443,12 @@ with t6:
     )
 
     if not audit_report_df.empty:
+
         st.download_button(
             "Download Audit Report (CSV)",
-            audit_report_df.to_csv(index=False).encode("utf-8-sig"),
+            audit_report_df.to_csv(
+                index=False
+            ).encode("utf-8-sig"),
             file_name="SecureLand_Audit_Report.csv",
             mime="text/csv",
             key="download_audit_report_csv"
@@ -1298,11 +1459,14 @@ with t6:
 # SIDEBAR NOTICE
 # ==================================================
 
+st.sidebar.divider()
+
 st.sidebar.caption(
     "Demo only. Do not upload confidential citizen data."
 )
 
 st.divider()
+
 st.markdown(
     "<div style='text-align:center; color: #777; font-size: 13px;'>"
     "Developed by <b>CyberBridge Digital Solutions Pune</b><br>"
