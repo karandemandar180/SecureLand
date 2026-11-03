@@ -38,8 +38,16 @@ st.set_page_config(
 init_db()
 
 # Shared asset path for the application UI and PDF reports.
+# Supports either repository-root upload or assets/ folder upload.
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
-LOGO_PATH = os.path.join(APP_DIR, "assets", "cyberbridge_logo.png")
+_LOGO_CANDIDATES = [
+    os.path.join(APP_DIR, "cyberbridge_logo.png"),
+    os.path.join(APP_DIR, "assets", "cyberbridge_logo.png"),
+]
+LOGO_PATH = next(
+    (candidate for candidate in _LOGO_CANDIDATES if os.path.isfile(candidate)),
+    _LOGO_CANDIDATES[0]
+)
 
 # Homepage branding
 brand_col, title_col = st.columns([1, 4])
@@ -280,7 +288,7 @@ def create_secureland_pdf(
 
     story = []
 
-    # Optional CyberBridge logo: assets/cyberbridge_logo.png
+    # Optional CyberBridge logo: root folder or assets/ folder.
     logo_path = LOGO_PATH
 
     if os.path.isfile(logo_path):
@@ -340,8 +348,7 @@ def create_secureland_pdf(
         if not rows:
             story.append(Paragraph("No records available.", body_style))
             return
-
-        converted = []
+                    converted = []
         for row in rows:
             converted_row = []
             for value in row:
@@ -689,8 +696,7 @@ with t2:
                 False,
                 index=filtered_df.index
             )
-
-            for col in search_columns:
+                        for col in search_columns:
 
                 if col in filtered_df.columns:
 
@@ -1040,7 +1046,7 @@ with t5:
             ):
 
                 st.error(
-                    "Evidence path missing. "
+                                        "Evidence path missing. "
                     "Re-acquire this file using Evidence Intake."
                 )
 
