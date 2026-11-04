@@ -17,11 +17,6 @@ WINDOWS_EXIFTOOL = Path(
 
 
 def find_exiftool():
-    """
-    Detect ExifTool on Windows and Linux.
-    Windows: Uses configured executable path.
-    Streamlit Cloud/Linux: Uses system PATH.
-    """
 
     tool = shutil.which("exiftool")
 
@@ -36,14 +31,18 @@ def find_exiftool():
 
 
 # --------------------------------------------------
-# SHA-256 HASH CALCULATION
+# SHA-256
 # --------------------------------------------------
 
 def sha256_file(filepath):
+
     h = hashlib.sha256()
 
     with open(filepath, "rb") as f:
-        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+        for chunk in iter(
+            lambda: f.read(1024 * 1024),
+            b""
+        ):
             h.update(chunk)
 
     return h.hexdigest()
@@ -65,7 +64,7 @@ def tool_availability():
             "Input": "Supported image/document metadata"
         },
         {
-            "Tool": "tshark",
+            "Tool": "TShark",
             "Available": bool(tshark),
             "Input": ".pcap / .pcapng"
         },
@@ -98,7 +97,7 @@ def command(tool, args, timeout=60):
             check=False
         )
 
-        out = (p.stdout or "") + (
+        output = (p.stdout or "") + (
             "\n" + p.stderr if p.stderr else ""
         )
 
@@ -110,7 +109,7 @@ def command(tool, args, timeout=60):
                 else "ERROR"
             ),
             "output": (
-                out[:20000]
+                output[:20000]
                 or f"Exit code {p.returncode}; no text output."
             )
         }
@@ -123,47 +122,92 @@ def command(tool, args, timeout=60):
             "output": f"{tool} timed out."
         }
 
-    except Exception as e:
+    except Exception as exc:
 
         return {
             "tool": tool,
             "status": "ERROR",
-            "output": str(e)
+            "output": str(exc)
         }
 
 
 # --------------------------------------------------
 # MAIN FORENSIC ANALYSIS
+# Supports BOTH old and new calling methods
 # --------------------------------------------------
 
-def run_applicable_tools(evidence_id, filepath, actor):
+def run_applicable_tools(
+    evidence_id,
+    filepath=None,
+    actor=None
+):
+
+    # Backward compatibility:
+    # run_applicable_tools(evidence_id)
+
+    if filepath is None:
+
+        try:
+            from database import get_evidence
+
+            evidence = get_evidence(evidence_id)
+
+            if not evidence:
+                return [{
+                    "tool": "Evidence Check",
+                    "status": "ERROR",
+                    "output": "Evidence ID not found."
+                }]
+
+            filepath = evidence.get("filepath")
+            actor = actor or evidence.get(
+                "collected_by",
+                "Unknown"
+            )
+
+        except Exception as exc:
+
+            return [{
+                "tool": "Evidence Check",
+                "status": "ERROR",
+                "output": str(exc)
+            }]
+
+    if not actor:
+        actor = "Unknown"
+
+    if not filepath:
+
+        return [{
+            "tool": "Evidence Check",
+            "status": "ERROR",
+            "output": "Evidence filepath is missing."
+        }]
 
     p = Path(filepath)
 
-    if not filepath or not p.is_file():
+    if not p.is_file():
 
-        return [
-            {
-                "tool": "Evidence Check",
-                "status": "ERROR",
-                "output": (
-                    "No valid evidence file path. "
-                    "Re-acquire evidence."
-                )
-            }
-        ]
+        return [{
+            "tool": "Evidence Check",
+            "status": "ERROR",
+            "output": (
+                "Evidence file not found. "
+                "Please upload the evidence again."
+            )
+        }]
 
-    out = []
+    results = []
 
-    # ----------------------------------------------
-    # EXIFTOOL METADATA ANALYSIS
-    # ----------------------------------------------
+    # --------------------------------------------------
+    # EXIFTOOL
+    # --------------------------------------------------
 
     exif = find_exiftool()
 
     if exif:
 
-        out.append(
+        results.append(
             command(
                 "ExifTool",
                 [
@@ -176,30 +220,31 @@ def run_applicable_tools(evidence_id, filepath, actor):
 
     else:
 
-        out.append(
-            {
-                "tool": "ExifTool",
-                "status": "NOT INSTALLED",
-                "output": (
-                    "ExifTool not found. Install ExifTool "
-                    "and configure its executable path."
-                )
-            }
-        )
+        results.append({
+            "tool": "ExifTool",
+            "status": "NOT INSTALLED",
+            "output": (
+                "ExifTool not found. "
+                "Install ExifTool and configure its path."
+            )
+        })
 
-    # ----------------------------------------------
-    # TSHARK NETWORK ANALYSIS
-    # ----------------------------------------------
+    # --------------------------------------------------
+    # TSHARK
+    # --------------------------------------------------
 
     tshark = shutil.which("tshark")
 
-    if p.suffix.lower() in (".pcap", ".pcapng"):
+    if p.suffix.lower() in (
+        ".pcap",
+        ".pcapng"
+    ):
 
         if tshark:
 
-            out.append(
+            results.append(
                 command(
-                    "tshark",
+                    "TShark",
                     [
                         tshark,
                         "-r",
@@ -207,71 +252,63 @@ def run_applicable_tools(evidence_id, filepath, actor):
                         "-c",
                         "100"
                     ],
-                    90
+                    timeout=90
                 )
             )
 
         else:
 
-            out.append(
-                {
-                    "tool": "tshark",
-                    "status": "NOT INSTALLED",
-                    "output": (
-                        "Install Wireshark/tshark "
-                        "and ensure tshark is on PATH."
-                    )
-                }
-            )
+            results.append({
+                "tool": "TShark",
+                "status": "NOT INSTALLED",
+                "output": (
+                    "Install Wireshark/TShark "
+                    "and ensure TShark is on PATH."
+                )
+            })
 
     else:
 
-        out.append(
-            {
-                "tool": "tshark",
-                "status": "SKIPPED",
-                "output": (
-                    f"Input is {p.suffix or 'unknown'}; "
-                    "tshark requires .pcap/.pcapng."
-                )
-            }
-        )
+        results.append({
+            "tool": "TShark",
+            "status": "SKIPPED",
+            "output": (
+                f"Input is {p.suffix or 'unknown'}. "
+                "TShark requires PCAP/PCAPNG files."
+            )
+        })
 
-    # ----------------------------------------------
-    # SHA-256 EVIDENCE HASH
-    # ----------------------------------------------
+    # --------------------------------------------------
+    # SHA-256
+    # --------------------------------------------------
 
     try:
 
         hash_value = sha256_file(str(p))
 
-        out.append(
-            {
-                "tool": "SHA-256",
-                "status": "SUCCESS",
-                "output": json.dumps(
-                    {
-                        "evidence_id": evidence_id,
-                        "file": p.name,
-                        "sha256": hash_value,
-                        "actor": actor
-                    },
-                    indent=2
-                )
-            }
-        )
+        results.append({
+            "tool": "SHA-256",
+            "status": "SUCCESS",
+            "output": json.dumps(
+                {
+                    "evidence_id": evidence_id,
+                    "file": p.name,
+                    "sha256": hash_value,
+                    "actor": actor
+                },
+                indent=2
+            )
+        })
 
-    except Exception as e:
+    except Exception as exc:
 
-        out.append(
-            {
-                "tool": "SHA-256",
-                "status": "ERROR",
-                "output": str(e)
-            }
-        )
+        results.append({
+            "tool": "SHA-256",
+            "status": "ERROR",
+            "output": str(exc)
+        })
 
-    return out
+    return results
 
 
 # --------------------------------------------------
