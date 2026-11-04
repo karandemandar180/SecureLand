@@ -1,4 +1,5 @@
 
+
 import os
 import io
 import hmac
@@ -51,7 +52,11 @@ LOGO_PATH = next(
 # ============================================================
 
 def safe_dataframe(data):
-    df = data.copy() if isinstance(data, pd.DataFrame) else pd.DataFrame(data)
+
+    if isinstance(data, pd.DataFrame):
+        df = data.copy()
+    else:
+        df = pd.DataFrame(data)
 
     if "Available" in df.columns:
         df["Available"] = df["Available"].astype(str)
@@ -60,11 +65,21 @@ def safe_dataframe(data):
 
 
 def show_df(data):
+
     df = safe_dataframe(data)
-    st.dataframe(df, use_container_width=True, hide_index=True)
+
+    if df.empty:
+        st.info("No records available.")
+    else:
+        st.dataframe(
+            df,
+            use_container_width=True,
+            hide_index=True
+        )
 
 
 def audit(actor, action, details=""):
+
     try:
         add_audit(
             str(actor),
@@ -100,7 +115,10 @@ def create_secureland_pdf(title, content):
             styles["Normal"]
         ),
         Spacer(1, 0.2 * inch),
-        Paragraph(escape(str(title)), styles["Heading1"]),
+        Paragraph(
+            escape(str(title)),
+            styles["Heading1"]
+        ),
         Spacer(1, 0.15 * inch),
         Paragraph(
             "Mobile: 9423174649 | Email: cyberbridgedigital@gmail.com",
@@ -110,12 +128,14 @@ def create_secureland_pdf(title, content):
     ]
 
     for line in str(content).splitlines():
+
         story.append(
             Paragraph(
                 escape(line) if line else "&nbsp;",
                 styles["Normal"]
             )
         )
+
         story.append(Spacer(1, 5))
 
     story.append(
@@ -139,14 +159,22 @@ def create_secureland_pdf(title, content):
 brand_col, title_col = st.columns([1, 4])
 
 with brand_col:
+
     if os.path.isfile(LOGO_PATH):
         st.image(LOGO_PATH, width=150)
 
 with title_col:
+
     st.title("🏛️ SecureLand")
     st.subheader("Land Records + Digital Forensics")
-    st.caption("Educational Prototype — Not an official government system.")
-    st.caption("Developed by CyberBridge Digital Solutions Pune")
+
+    st.caption(
+        "Educational Prototype — Not an official government system."
+    )
+
+    st.caption(
+        "Developed by CyberBridge Digital Solutions Pune"
+    )
 
 
 # ============================================================
@@ -180,9 +208,15 @@ def is_strong_password(password):
 
 
 PASSWORDS = {
-    "Admin": get_configured_password("SECURELAND_ADMIN_PASSWORD"),
-    "Talathi": get_configured_password("SECURELAND_TALATHI_PASSWORD"),
-    "Citizen": get_configured_password("SECURELAND_CITIZEN_PASSWORD")
+    "Admin": get_configured_password(
+        "SECURELAND_ADMIN_PASSWORD"
+    ),
+    "Talathi": get_configured_password(
+        "SECURELAND_TALATHI_PASSWORD"
+    ),
+    "Citizen": get_configured_password(
+        "SECURELAND_CITIZEN_PASSWORD"
+    )
 }
 
 missing_roles = [
@@ -196,13 +230,19 @@ weak_roles = [
 
 if missing_roles or weak_roles:
 
-    st.error("SecureLand login configuration is incomplete.")
+    st.error(
+        "SecureLand login configuration is incomplete."
+    )
 
     if missing_roles:
-        st.warning("Password missing: " + ", ".join(missing_roles))
+        st.warning(
+            "Password missing: " + ", ".join(missing_roles)
+        )
 
     if weak_roles:
-        st.warning("Weak password: " + ", ".join(weak_roles))
+        st.warning(
+            "Weak password: " + ", ".join(weak_roles)
+        )
 
     st.info(
         "Configure strong passwords in "
@@ -247,32 +287,54 @@ if st.sidebar.button("Login"):
         st.session_state.logged = True
         st.session_state.role = selected_role
 
-        audit(selected_role, "LOGIN", "Successful demo login")
+        audit(
+            selected_role,
+            "LOGIN",
+            "Successful demo login"
+        )
 
         st.rerun()
 
     else:
+
         st.sidebar.error("Incorrect password")
 
 
 if st.sidebar.button("Logout"):
 
-    old_role = st.session_state.get("role") or "Unknown"
+    old_role = (
+        st.session_state.get("role") or "Unknown"
+    )
 
     if st.session_state.logged:
-        audit(old_role, "LOGOUT", "User logged out")
+
+        audit(
+            old_role,
+            "LOGOUT",
+            "User logged out"
+        )
 
     st.session_state.logged = False
     st.session_state.role = None
-    st.session_state.pop("login_password", None)
+
+    st.session_state.pop(
+        "login_password",
+        None
+    )
 
     st.rerun()
 
 
 if not st.session_state.logged:
 
-    st.info("Please log in using your configured role password.")
-    st.sidebar.caption("Demo prototype. Do not upload confidential citizen data.")
+    st.info(
+        "Please log in using your configured role password."
+    )
+
+    st.sidebar.caption(
+        "Demo prototype. Do not upload confidential citizen data."
+    )
+
     st.stop()
 
 
@@ -370,6 +432,7 @@ with t_dashboard:
         )
 
     except Exception as exc:
+
         st.error(f"Dashboard error: {exc}")
 
     st.info(
@@ -397,13 +460,21 @@ with t_land:
             owner = st.text_input("Land Owner Name")
             survey_no = st.text_input("Survey / Gat Number")
 
-            submit_record = st.form_submit_button("Save Land Record")
+            submit_record = st.form_submit_button(
+                "Save Land Record"
+            )
 
         if submit_record:
 
-            if not village.strip() or not owner.strip() or not survey_no.strip():
+            if (
+                not village.strip()
+                or not owner.strip()
+                or not survey_no.strip()
+            ):
 
-                st.error("Please enter all required fields.")
+                st.error(
+                    "Please enter all required fields."
+                )
 
             else:
 
@@ -416,7 +487,10 @@ with t_land:
                         role
                     )
 
-                    st.success("Land record saved successfully.")
+                    st.success(
+                        "Land record saved successfully."
+                    )
+
                     st.write(result)
 
                     audit(
@@ -428,10 +502,16 @@ with t_land:
                     st.rerun()
 
                 except Exception as exc:
-                    st.error(f"Unable to save record: {exc}")
+
+                    st.error(
+                        f"Unable to save record: {exc}"
+                    )
 
     else:
-        st.info("Citizen role has read-only access.")
+
+        st.info(
+            "Citizen role has read-only access."
+        )
 
     st.subheader("Available Land Records")
 
@@ -445,37 +525,69 @@ with t_land:
             st.warning("No land records available.")
 
     except Exception as exc:
-        st.error(f"Unable to load records: {exc}")
+
+        st.error(
+            f"Unable to load records: {exc}"
+        )
 
 
 # ============================================================
 # 9. EVIDENCE INTAKE
+# ADD + SEARCH + SHA-256 DETECTION + FORENSICS + HISTORY
 # ============================================================
 
 with t_intake:
 
-    st.header("Digital Evidence Intake")
+    st.header("Digital Evidence Management")
 
-    st.write(
-        "Upload evidence files for forensic examination. "
-        "The system calculates a SHA-256 hash."
+    st.caption(
+        "Evidence Registration | Search | Integrity Detection "
+        "| Forensic Examination | History"
     )
+
+    # --------------------------------------------------------
+    # 9.1 ADD NEW EVIDENCE
+    # --------------------------------------------------------
+
+    st.subheader("1. Add New Evidence")
 
     if role in ["Admin", "Talathi"]:
 
-        uploaded_file = st.file_uploader(
-            "Upload Evidence File",
-            key="evidence_upload"
-        )
+        with st.form(
+            "evidence_intake_form",
+            clear_on_submit=True
+        ):
 
-        case_ref = st.text_input("Case Reference")
-        evidence_description = st.text_area("Evidence Description")
+            uploaded_file = st.file_uploader(
+                "Upload Evidence File",
+                key="evidence_upload"
+            )
 
-        if st.button("Submit Evidence"):
+            case_ref = st.text_input(
+                "Case Reference"
+            )
+
+            evidence_description = st.text_area(
+                "Evidence Description / Notes"
+            )
+
+            submit_evidence = st.form_submit_button(
+                "Submit Evidence"
+            )
+
+        if submit_evidence:
 
             if uploaded_file is None:
 
-                st.error("Please select an evidence file.")
+                st.error(
+                    "Please select an evidence file."
+                )
+
+            elif not case_ref.strip():
+
+                st.error(
+                    "Please enter Case Reference."
+                )
 
             else:
 
@@ -484,34 +596,48 @@ with t_intake:
                     eid, filepath, digest = add_evidence(
                         uploaded_file.name,
                         uploaded_file.getvalue(),
-                        case_ref,
+                        case_ref.strip(),
                         role,
-                        evidence_description
+                        evidence_description.strip()
                     )
 
-                    st.success("Evidence submitted successfully.")
+                    st.success(
+                        "Evidence submitted successfully."
+                    )
 
-                    st.write({
+                    st.json({
                         "evidence_id": eid,
+                        "filename": uploaded_file.name,
                         "filepath": filepath,
+                        "case_reference": case_ref,
                         "sha256": digest
                     })
 
                     audit(
                         role,
                         "EVIDENCE_UPLOADED",
-                        uploaded_file.name
+                        f"Evidence ID={eid}; File={uploaded_file.name}"
                     )
 
-                    st.rerun()
-
                 except Exception as exc:
-                    st.error(f"Evidence upload failed: {exc}")
+
+                    st.error(
+                        f"Evidence upload failed: {exc}"
+                    )
 
     else:
-        st.info("Citizen role has read-only access.")
 
-    st.subheader("Evidence Register")
+        st.info(
+            "Citizen role has read-only access."
+        )
+
+    st.divider()
+
+    # --------------------------------------------------------
+    # 9.2 SEARCH EVIDENCE
+    # --------------------------------------------------------
+
+    st.subheader("2. Search Evidence")
 
     try:
 
@@ -519,30 +645,341 @@ with t_intake:
 
         if evidence_records:
 
-            evidence_df = pd.DataFrame(evidence_records)
-
-            show_df(evidence_df)
-
-            evidence_ids = [
-                r["evidence_id"] for r in evidence_records
-            ]
-
-            selected_evidence = st.selectbox(
-                "Select Evidence ID",
-                evidence_ids,
-                key="intake_evidence_id"
+            evidence_df = pd.DataFrame(
+                evidence_records
             )
 
-            evidence_details = get_evidence(selected_evidence)
+            search_text = st.text_input(
+                "Search by Evidence ID, Filename, Case Reference or Collector",
+                key="intake_search"
+            )
 
-            if evidence_details:
-                st.json(evidence_details)
+            filtered_df = evidence_df.copy()
+
+            if search_text.strip():
+
+                search_value = search_text.strip().lower()
+
+                searchable_columns = [
+                    col for col in [
+                        "evidence_id",
+                        "filename",
+                        "case_ref",
+                        "collected_by"
+                    ]
+                    if col in filtered_df.columns
+                ]
+
+                if searchable_columns:
+
+                    mask = filtered_df[
+                        searchable_columns
+                    ].astype(str).apply(
+                        lambda col: col.str.lower().str.contains(
+                            search_value,
+                            regex=False,
+                            na=False
+                        )
+                    ).any(axis=1)
+
+                    filtered_df = filtered_df[mask]
+
+            st.write(
+                f"Search Results: {len(filtered_df)}"
+            )
+
+            if not filtered_df.empty:
+                show_df(filtered_df)
+            else:
+                st.warning(
+                    "No matching evidence found."
+                )
 
         else:
-            st.warning("No evidence records available.")
+
+            st.info(
+                "No evidence records available."
+            )
 
     except Exception as exc:
-        st.error(f"Evidence register error: {exc}")
+
+        st.error(
+            f"Evidence search error: {exc}"
+        )
+
+    st.divider()
+
+    # --------------------------------------------------------
+    # 9.3 EVIDENCE DETAILS AND SHA-256 DETECTION
+    # --------------------------------------------------------
+
+    st.subheader("3. Detect / Verify Evidence Integrity")
+
+    try:
+
+        evidence_records = list_evidence()
+
+        if evidence_records:
+
+            evidence_ids = [
+                item["evidence_id"]
+                for item in evidence_records
+            ]
+
+            selected_evidence_id = st.selectbox(
+                "Select Evidence ID",
+                evidence_ids,
+                key="intake_detect_id"
+            )
+
+            selected_evidence = get_evidence(
+                selected_evidence_id
+            )
+
+            if selected_evidence:
+
+                st.write(
+                    "Selected Evidence Details"
+                )
+
+                st.json(selected_evidence)
+
+            if st.button(
+                "Detect SHA-256 Integrity",
+                key="intake_detect_button"
+            ):
+
+                detection_result = verify_evidence(
+                    selected_evidence_id
+                )
+
+                st.subheader(
+                    "SHA-256 Detection Result"
+                )
+
+                st.json(detection_result)
+
+                detection_status = detection_result.get(
+                    "status",
+                    "UNKNOWN"
+                )
+
+                if detection_status == "INTEGRITY VERIFIED":
+
+                    st.success(
+                        "Evidence integrity verified."
+                    )
+
+                elif detection_status == "INTEGRITY MISMATCH":
+
+                    st.error(
+                        "Evidence integrity mismatch detected."
+                    )
+
+                else:
+
+                    st.warning(detection_status)
+
+                audit(
+                    role,
+                    "EVIDENCE_INTEGRITY_DETECTION",
+                    f"Evidence ID={selected_evidence_id}; Status={detection_status}"
+                )
+
+        else:
+
+            st.info(
+                "Upload evidence before running detection."
+            )
+
+    except Exception as exc:
+
+        st.error(
+            f"Integrity detection error: {exc}"
+        )
+
+    st.divider()
+
+    # --------------------------------------------------------
+    # 9.4 FORENSIC EXAMINATION
+    # --------------------------------------------------------
+
+    st.subheader("4. Run Forensic Examination")
+
+    try:
+
+        evidence_records = list_evidence()
+
+        if evidence_records:
+
+            forensic_ids = [
+                item["evidence_id"]
+                for item in evidence_records
+            ]
+
+            forensic_selected_id = st.selectbox(
+                "Select Evidence for Forensic Examination",
+                forensic_ids,
+                key="intake_forensic_id"
+            )
+
+            if role in ["Admin", "Talathi"]:
+
+                if st.button(
+                    "Run Applicable Forensic Tools",
+                    key="intake_forensic_button"
+                ):
+
+                    try:
+
+                        forensic_result = run_applicable_tools(
+                            forensic_selected_id
+                        )
+
+                        st.subheader(
+                            "Forensic Examination Output"
+                        )
+
+                        st.write(forensic_result)
+
+                        audit(
+                            role,
+                            "FORENSIC_EXAMINATION",
+                            f"Evidence ID={forensic_selected_id}"
+                        )
+
+                    except Exception as exc:
+
+                        st.error(
+                            f"Forensic examination failed: {exc}"
+                        )
+
+            else:
+
+                st.info(
+                    "Citizen role has read-only access."
+                )
+
+        else:
+
+            st.info(
+                "No evidence available for examination."
+            )
+
+    except Exception as exc:
+
+        st.error(
+            f"Forensic examination error: {exc}"
+        )
+
+    st.divider()
+
+    # --------------------------------------------------------
+    # 9.5 EVIDENCE REGISTRATION HISTORY
+    # --------------------------------------------------------
+
+    st.subheader("5. Evidence Registration History")
+
+    try:
+
+        history_records = list_evidence()
+
+        if history_records:
+
+            history_df = pd.DataFrame(
+                history_records
+            )
+
+            show_df(history_df)
+
+            st.download_button(
+                "Download Evidence History CSV",
+                data=history_df.to_csv(
+                    index=False
+                ).encode("utf-8-sig"),
+                file_name="secureland_evidence_history.csv",
+                mime="text/csv"
+            )
+
+        else:
+
+            st.info(
+                "Evidence registration history is empty."
+            )
+
+    except Exception as exc:
+
+        st.error(
+            f"Evidence history error: {exc}"
+        )
+
+    st.divider()
+
+    # --------------------------------------------------------
+    # 9.6 CHAIN OF CUSTODY HISTORY
+    # --------------------------------------------------------
+
+    st.subheader("6. Chain of Custody History")
+
+    try:
+
+        custody_records = list_evidence()
+
+        if custody_records:
+
+            custody_ids = [
+                item["evidence_id"]
+                for item in custody_records
+            ]
+
+            custody_selected_id = st.selectbox(
+                "Select Evidence for Custody History",
+                custody_ids,
+                key="intake_custody_history_id"
+            )
+
+            custody_history = get_custody(
+                custody_selected_id
+            )
+
+            if not custody_history.empty:
+
+                show_df(custody_history)
+
+                st.download_button(
+                    "Download Custody History CSV",
+                    data=custody_history.to_csv(
+                        index=False
+                    ).encode("utf-8-sig"),
+                    file_name=(
+                        f"custody_history_{custody_selected_id}.csv"
+                    ),
+                    mime="text/csv"
+                )
+
+            else:
+
+                st.info(
+                    "No custody history available."
+                )
+
+        else:
+
+            st.info(
+                "No evidence available."
+            )
+
+    except Exception as exc:
+
+        st.error(
+            f"Custody history error: {exc}"
+        )
+
+    st.caption(
+        "SHA-256 verification checks file consistency against "
+        "the stored reference hash. It does not independently "
+        "establish authenticity or legal admissibility."
+    )
 
 
 # ============================================================
@@ -586,12 +1023,13 @@ with t_integrity:
             )
 
     else:
+
         st.warning("No evidence available.")
 
     st.caption(
-        "A matching SHA-256 hash indicates consistency with the stored "
-        "reference hash. It does not independently prove authenticity "
-        "or legal admissibility."
+        "A matching SHA-256 hash indicates consistency with "
+        "the stored reference hash. It does not independently "
+        "prove authenticity or legal admissibility."
     )
 
 
@@ -649,7 +1087,9 @@ with t_custody:
                         remarks
                     )
 
-                    st.success("Custody event saved.")
+                    st.success(
+                        "Custody event saved."
+                    )
 
                     audit(
                         role,
@@ -660,7 +1100,10 @@ with t_custody:
                     st.rerun()
 
                 except Exception as exc:
-                    st.error(f"Custody error: {exc}")
+
+                    st.error(
+                        f"Custody error: {exc}"
+                    )
 
         st.subheader("Custody History")
 
@@ -672,7 +1115,10 @@ with t_custody:
             st.info("No custody history found.")
 
     else:
-        st.warning("Upload evidence before creating custody events.")
+
+        st.warning(
+            "Upload evidence before creating custody events."
+        )
 
 
 # ============================================================
@@ -687,11 +1133,17 @@ with t_tools:
 
     try:
 
-        availability_df = pd.DataFrame(tool_availability())
+        availability_df = pd.DataFrame(
+            tool_availability()
+        )
+
         show_df(availability_df)
 
     except Exception as exc:
-        st.error(f"Tool availability error: {exc}")
+
+        st.error(
+            f"Tool availability error: {exc}"
+        )
 
     st.divider()
 
@@ -711,26 +1163,47 @@ with t_tools:
             key="forensic_evidence_id"
         )
 
-        if st.button("Run Applicable Forensic Tools"):
+        if role in ["Admin", "Talathi"]:
 
-            try:
+            if st.button(
+                "Run Applicable Forensic Tools"
+            ):
 
-                result = run_applicable_tools(selected_id)
+                try:
 
-                st.subheader("Forensic Examination Output")
-                st.write(result)
+                    result = run_applicable_tools(
+                        selected_id
+                    )
 
-                audit(
-                    role,
-                    "FORENSIC_TOOLS_EXECUTED",
-                    f"Evidence ID={selected_id}"
-                )
+                    st.subheader(
+                        "Forensic Examination Output"
+                    )
 
-            except Exception as exc:
-                st.error(f"Forensic execution failed: {exc}")
+                    st.write(result)
+
+                    audit(
+                        role,
+                        "FORENSIC_TOOLS_EXECUTED",
+                        f"Evidence ID={selected_id}"
+                    )
+
+                except Exception as exc:
+
+                    st.error(
+                        f"Forensic execution failed: {exc}"
+                    )
+
+        else:
+
+            st.info(
+                "Citizen role has read-only access."
+            )
 
     else:
-        st.warning("No evidence files available.")
+
+        st.warning(
+            "No evidence files available."
+        )
 
     st.info(
         "TShark requires PCAP/PCAPNG files. "
@@ -746,83 +1219,102 @@ with t_reports:
 
     st.header("Reports & Audit Management")
 
-    land_records = get_land_records()
-    evidence_records = list_evidence()
-    audit_records = get_audit_log()
+    try:
 
-    st.subheader("Land Records Report")
+        land_records = get_land_records()
+        evidence_records = list_evidence()
+        audit_records = get_audit_log()
 
-    show_df(land_records)
+        st.subheader("Land Records Report")
 
-    st.download_button(
-        "Download Land Records CSV",
-        data=land_records.to_csv(index=False).encode("utf-8-sig"),
-        file_name="secureland_land_records.csv",
-        mime="text/csv"
-    )
-
-    st.divider()
-
-    st.subheader("Evidence Report")
-
-    evidence_df = pd.DataFrame(evidence_records)
-    show_df(evidence_df)
-
-    st.download_button(
-        "Download Evidence CSV",
-        data=evidence_df.to_csv(index=False).encode("utf-8-sig"),
-        file_name="secureland_evidence_report.csv",
-        mime="text/csv"
-    )
-
-    st.divider()
-
-    st.subheader("Audit Log")
-
-    show_df(audit_records)
-
-    st.download_button(
-        "Download Audit CSV",
-        data=audit_records.to_csv(index=False).encode("utf-8-sig"),
-        file_name="secureland_audit_log.csv",
-        mime="text/csv"
-    )
-
-    st.divider()
-
-    st.subheader("Generate PDF Summary")
-
-    if st.button("Generate SecureLand PDF Report"):
-
-        report_content = [
-            f"Generated On: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
-            f"Generated By: {role}",
-            f"Total Land Records: {len(land_records)}",
-            f"Total Evidence Files: {len(evidence_records)}",
-            "",
-            "LAND RECORDS",
-            land_records.to_string(index=False),
-            "",
-            "EVIDENCE REGISTER",
-            str(evidence_records)
-        ]
-
-        pdf_bytes = create_secureland_pdf(
-            "SecureLand System Summary Report",
-            "\n".join(report_content)
-        )
+        show_df(land_records)
 
         st.download_button(
-            "Download PDF Report",
-            data=pdf_bytes,
-            file_name="SecureLand_Report.pdf",
-            mime="application/pdf"
+            "Download Land Records CSV",
+            data=land_records.to_csv(
+                index=False
+            ).encode("utf-8-sig"),
+            file_name="secureland_land_records.csv",
+            mime="text/csv"
         )
 
-        audit(
-            role,
-            "PDF_REPORT_GENERATED",
-            "SecureLand System Summary Report"
+        st.divider()
+
+        st.subheader("Evidence Report")
+
+        evidence_df = pd.DataFrame(
+            evidence_records
+        )
+
+        show_df(evidence_df)
+
+        st.download_button(
+            "Download Evidence CSV",
+            data=evidence_df.to_csv(
+                index=False
+            ).encode("utf-8-sig"),
+            file_name="secureland_evidence_report.csv",
+            mime="text/csv"
+        )
+
+        st.divider()
+
+        st.subheader("Audit Log")
+
+        show_df(audit_records)
+
+        st.download_button(
+            "Download Audit CSV",
+            data=audit_records.to_csv(
+                index=False
+            ).encode("utf-8-sig"),
+            file_name="secureland_audit_log.csv",
+            mime="text/csv"
+        )
+
+        st.divider()
+
+        st.subheader("Generate PDF Summary")
+
+        if st.button(
+            "Generate SecureLand PDF Report"
+        ):
+
+            report_content = [
+                f"Generated On: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+                f"Generated By: {role}",
+                f"Total Land Records: {len(land_records)}",
+                f"Total Evidence Files: {len(evidence_records)}",
+                "",
+                "LAND RECORDS",
+                land_records.to_string(index=False),
+                "",
+                "EVIDENCE REGISTER",
+                str(evidence_records)
+            ]
+
+            pdf_bytes = create_secureland_pdf(
+                "SecureLand System Summary Report",
+                "\n".join(report_content)
+            )
+
+            st.download_button(
+                "Download PDF Report",
+                data=pdf_bytes,
+                file_name="SecureLand_Report.pdf",
+                mime="application/pdf"
+            )
+
+            audit(
+                role,
+                "PDF_REPORT_GENERATED",
+                "SecureLand System Summary Report"
+            )
+
+    except Exception as exc:
+
+        st.error(
+            f"Reports module error: {exc}"
         )
 
 
@@ -846,12 +1338,16 @@ with t_land_integrity:
             key="land_integrity_record_id"
         )
 
-        selected_record = get_land_record(selected_record_id)
+        selected_record = get_land_record(
+            selected_record_id
+        )
 
         if selected_record:
             st.json(selected_record)
 
-        if st.button("Verify Land Record Integrity"):
+        if st.button(
+            "Verify Land Record Integrity"
+        ):
 
             result = verify_land_record_integrity(
                 selected_record_id
@@ -860,9 +1356,16 @@ with t_land_integrity:
             st.json(result)
 
             if result.get("status") == "INTEGRITY VERIFIED":
-                st.success("Integrity verification successful.")
+
+                st.success(
+                    "Integrity verification successful."
+                )
+
             else:
-                st.warning("Integrity verification requires investigation.")
+
+                st.warning(
+                    "Integrity verification requires investigation."
+                )
 
             audit(
                 role,
@@ -870,7 +1373,9 @@ with t_land_integrity:
                 f"Land Record ID={selected_record_id}"
             )
 
-        st.subheader("Integrity Verification History")
+        st.subheader(
+            "Integrity Verification History"
+        )
 
         integrity_history = get_integrity_history(
             selected_record_id
@@ -879,10 +1384,15 @@ with t_land_integrity:
         if not integrity_history.empty:
             show_df(integrity_history)
         else:
-            st.info("No integrity history available.")
+            st.info(
+                "No integrity history available."
+            )
 
     else:
-        st.warning("No land records available.")
+
+        st.warning(
+            "No land records available."
+        )
 
 
 # ============================================================
@@ -910,7 +1420,9 @@ with t_fraud:
             key="fraud_risk_record_id"
         )
 
-        if st.button("Analyze Fraud Risk"):
+        if st.button(
+            "Analyze Fraud Risk"
+        ):
 
             risk_result = analyze_land_record(
                 selected_risk_id
@@ -928,17 +1440,33 @@ with t_fraud:
                 0
             )
 
-            st.metric("Risk Score", risk_score)
-            st.metric("Risk Level", risk_level)
+            st.metric(
+                "Risk Score",
+                risk_score
+            )
+
+            st.metric(
+                "Risk Level",
+                risk_level
+            )
 
             if risk_level == "HIGH":
-                st.error("High-risk indicators detected. Manual review required.")
+
+                st.error(
+                    "High-risk indicators detected. Manual review required."
+                )
 
             elif risk_level == "MEDIUM":
-                st.warning("Potential risk indicators detected.")
+
+                st.warning(
+                    "Potential risk indicators detected."
+                )
 
             elif risk_level == "LOW":
-                st.success("No configured risk rules were triggered.")
+
+                st.success(
+                    "No configured risk rules were triggered."
+                )
 
             audit(
                 role,
@@ -946,17 +1474,26 @@ with t_fraud:
                 f"Record={selected_risk_id}; Risk={risk_level}"
             )
 
-        st.subheader("Risk Analysis History")
+        st.subheader(
+            "Risk Analysis History"
+        )
 
-        risk_history = get_risk_history(selected_risk_id)
+        risk_history = get_risk_history(
+            selected_risk_id
+        )
 
         if not risk_history.empty:
             show_df(risk_history)
         else:
-            st.info("No risk history available.")
+            st.info(
+                "No risk history available."
+            )
 
     else:
-        st.warning("No land records available.")
+
+        st.warning(
+            "No land records available."
+        )
 
     st.divider()
 
@@ -967,7 +1504,9 @@ with t_fraud:
     if not risk_summary.empty:
         show_df(risk_summary)
     else:
-        st.info("No risk analysis data available.")
+        st.info(
+            "No risk analysis data available."
+        )
 
 
 # ============================================================
@@ -997,7 +1536,9 @@ with t_ledger:
 
         if role in ["Admin", "Talathi"]:
 
-            if st.button("Create Ledger Snapshot"):
+            if st.button(
+                "Create Ledger Snapshot"
+            ):
 
                 try:
 
@@ -1009,10 +1550,19 @@ with t_ledger:
 
                     st.json(ledger_result)
 
-                    if ledger_result.get("status") == "LEDGER ENTRY CREATED":
-                        st.success("Ledger snapshot created.")
+                    if ledger_result.get(
+                        "status"
+                    ) == "LEDGER ENTRY CREATED":
+
+                        st.success(
+                            "Ledger snapshot created."
+                        )
+
                     else:
-                        st.warning("Ledger entry could not be created.")
+
+                        st.warning(
+                            "Ledger entry could not be created."
+                        )
 
                     audit(
                         role,
@@ -1021,19 +1571,30 @@ with t_ledger:
                     )
 
                 except Exception as exc:
-                    st.error(f"Ledger creation failed: {exc}")
+
+                    st.error(
+                        f"Ledger creation failed: {exc}"
+                    )
 
         else:
-            st.info("Citizen role has read-only access.")
+
+            st.info(
+                "Citizen role has read-only access."
+            )
 
     else:
-        st.warning("No land records available.")
+
+        st.warning(
+            "No land records available."
+        )
 
     st.divider()
 
     st.subheader("Ledger Chain Verification")
 
-    if st.button("Verify Complete Ledger Chain"):
+    if st.button(
+        "Verify Complete Ledger Chain"
+    ):
 
         try:
 
@@ -1041,19 +1602,36 @@ with t_ledger:
 
             st.json(chain_result)
 
-            if chain_result.get("status") == "LEDGER VERIFIED":
-                st.success("Ledger hash chain verification successful.")
+            if chain_result.get(
+                "status"
+            ) == "LEDGER VERIFIED":
+
+                st.success(
+                    "Ledger hash chain verification successful."
+                )
+
             else:
-                st.error("Ledger verification failed.")
+
+                st.error(
+                    "Ledger verification failed."
+                )
 
             audit(
                 role,
                 "LEDGER_CHAIN_VERIFICATION",
-                str(chain_result.get("status", "UNKNOWN"))
+                str(
+                    chain_result.get(
+                        "status",
+                        "UNKNOWN"
+                    )
+                )
             )
 
         except Exception as exc:
-            st.error(f"Ledger verification error: {exc}")
+
+            st.error(
+                f"Ledger verification error: {exc}"
+            )
 
     st.divider()
 
@@ -1064,7 +1642,9 @@ with t_ledger:
     if not ledger_history.empty:
         show_df(ledger_history)
     else:
-        st.info("No ledger entries available.")
+        st.info(
+            "No ledger entries available."
+        )
 
 
 # ============================================================
